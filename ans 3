@@ -1,0 +1,57 @@
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.impute import SimpleImputer
+
+# Load the training dataset
+df_train = pd.read_csv('/content/Consumer_Dataset.csv')
+
+# Handle missing values in the training dataset
+imputer = SimpleImputer(strategy='most_frequent')
+df_train_imputed = pd.DataFrame(imputer.fit_transform(df_train), columns=df_train.columns)
+
+# Encode categorical variables in the training dataset
+label_encoders = {}
+for column in df_train_imputed.select_dtypes(include=['object']).columns:
+    if column != 'Group':
+        label_encoders[column] = LabelEncoder()
+        df_train_imputed[column] = label_encoders[column].fit_transform(df_train_imputed[column])
+
+# Encode the target variable in the training dataset
+label_encoders['Group'] = LabelEncoder()
+df_train_imputed['Group'] = label_encoders['Group'].fit_transform(df_train_imputed['Group'])
+
+# Separate features and target
+X_train_full = df_train_imputed.drop(columns=['Group', 'Unnamed: 0'])
+y_train_full = df_train_imputed['Group']
+
+# Train the Random Forest classifier on the entire training data
+rf_model_full = RandomForestClassifier(random_state=42)
+rf_model_full.fit(X_train_full, y_train_full)
+
+# Load the test dataset
+df_test = pd.read_csv('/content/Consumer Test Dataset.csv')
+
+# Handle missing values in the test dataset
+df_test_imputed = pd.DataFrame(imputer.transform(df_test), columns=df_test.columns)
+
+# Encode categorical variables in the test dataset
+for column in df_test_imputed.select_dtypes(include=['object']).columns:
+    if column in label_encoders:
+        df_test_imputed[column] = label_encoders[column].transform(df_test_imputed[column])
+
+# Ensure the test dataset has the same feature columns as the training dataset
+X_test_full = df_test_imputed[X_train_full.columns]
+
+# Make predictions on the test data
+test_predictions = rf_model_full.predict(X_test_full)
+
+# Decode the predicted labels back to their original form
+test_predictions_decoded = label_encoders['Group'].inverse_transform(test_predictions)
+
+# Add predictions to the test dataframe
+df_test['Group'] = test_predictions_decoded
+
+# Save the predictions to a new CSV file
+output_file_path = '/content/Consumer Test Dataset.csv'
+df_test.to_csv(output_file_path, index=False)
