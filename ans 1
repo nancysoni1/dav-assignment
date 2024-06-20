@@ -1,0 +1,81 @@
+import pandas as pd
+
+# Load the dataset
+data = pd.read_csv('/content/drive/MyDrive/Power_Generation_Dataset.csv')
+
+# Select relevant columns
+columns_of_interest = ['State', 'Region ID', 'Region']
+x = data[columns_of_interest]
+
+# Drop duplicates based on 'State' to get unique states with their associated Region ID, Category of Plant, and Installed Capacity
+unique_rows = x.drop_duplicates(subset='State')
+
+# Count occurrences of each unique state
+counts = data['State'].value_counts()
+
+# Convert counts to a DataFrame
+counts_df = counts.reset_index()
+counts_df.columns = ['State', 'Count']
+
+# Merge counts with unique rows to get additional information
+merged_df = pd.merge(counts_df, unique_rows, on='State')
+
+# Sort by counts in ascending order
+merged_df_sorted = merged_df.sort_values(by='Count', ascending=True)
+
+# Print the result
+#print(merged_df_sorted)
+
+#the plot
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Get the list of states and categories of plants
+states = data['State'].unique()
+categories = data['Category of Plant'].unique()
+
+# Define a color palette using seaborn
+palette = sns.color_palette("husl", len(states) * len(categories))
+
+# Create the plot with subplots
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(18, 15), sharex=True)
+
+# Splitting states into two halves for two subplots
+half_states = len(states) // 2
+first_half_states = states[:half_states]
+second_half_states = states[half_states:]
+
+# Plotting the first half states
+for i, state in enumerate(first_half_states):
+    for j, category in enumerate(categories):
+        subset = data[(data['State'] == state) & (data['Category of Plant'] == category)]
+        if not subset.empty:
+            ax1.plot(subset['MonthCode'], subset['Actual energy generated'],  # Replace 'Actual energy generated' with the correct column name
+                     label=f'{state} - {category}',
+                     color=palette[i * len(categories) + j])
+
+ax1.set_title('Energy Usage Across States and Categories of Plants (First Half)')
+ax1.set_xlabel('MonthCode')
+ax1.set_ylabel('Actual Energy Generated')
+ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+# Plotting the second half states
+for i, state in enumerate(second_half_states):
+    for j, category in enumerate(categories):
+        subset = data[(data['State'] == state) & (data['Category of Plant'] == category)]
+        if not subset.empty:
+            ax2.plot(subset['MonthCode'], subset['Actual energy generated'],  # Replace 'Actual energy generated' with the correct column name
+                     label=f'{state} - {category}',
+                     color=palette[(i + half_states) * len(categories) + j])
+
+ax2.set_title('Energy Usage Across States and Categories of Plants (Second Half)')
+ax2.set_xlabel('MonthCode')
+ax2.set_ylabel('Actual Energy Generated')
+ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+plt.tight_layout()
+hellooo = 'plot.png'  # Define the filename as a string
+plt.savefig(hellooo)
+
+plt.show()
+
