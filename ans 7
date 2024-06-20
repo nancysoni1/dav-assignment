@@ -1,0 +1,90 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import collections
+
+# Load your dataset
+mails = pd.read_csv('/content/Email_Dataset.csv')
+
+# Map 'CATEGORY' column to boolean values
+mails['CATEGORY'] = mails['CATEGORY'].map({'Not Spam': False, 'Spam': True})
+
+# Function to count words in messages
+def count_words(data):
+    counter = collections.OrderedDict()
+    for message in data:
+        if isinstance(message, str):  # Check if message is a string
+            for word in message.split():
+                if word.strip():  # Check if the word is not just a space
+                    if word in counter:
+                        counter[word] += 1
+                    else:
+                        counter[word] = 1
+    return counter
+
+# Extract spam and ham messages
+spam_messages = mails[mails['CATEGORY'] == True]['MESSAGE']
+ham_messages = mails[mails['CATEGORY'] == False]['MESSAGE']
+
+# Count words in spam and ham messages
+spam_words = count_words(spam_messages)
+ham_words = count_words(ham_messages)
+
+# Function to create bar chart of top words
+def bar_chart_words(words, top=10, messages_type="", color="#1f77b4", figsize=(10, 6)):
+    # Sort words by count and select top 'top' words
+    top_words = sorted(words.items(), key=lambda x: -x[1])[:top]
+
+    # Extract top words and their counts
+    top_words, top_words_count = zip(*top_words)  # Unzip the list of tuples
+
+    # Plotting
+    plt.figure(figsize=figsize)  # Adjust figure size if needed
+    plt.barh(top_words, top_words_count, color=color)
+    plt.xlabel('Number of Occurrences')
+    plt.title(f'Top {top} Most Common Words in {messages_type} Messages')
+    plt.gca().invert_yaxis()  # Invert y-axis to have highest counts at the top
+    plt.show()
+
+# Generate bar chart for top spam words
+bar_chart_words(spam_words, top=15, messages_type="Spam", color="orange", figsize=(4, 3))
+
+# Generate bar chart for top ham words
+bar_chart_words(ham_words, top=15, messages_type="Ham", color="green", figsize=(4, 3))
+
+
+#final csv file
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+
+# Load the training data
+train_data = pd.read_csv('/content/Email_Dataset.csv')
+# Load the test data
+test_data = pd.read_csv('/content/Email Test Data.csv')
+
+# Extract features and labels from the training data
+X_train = train_data['MESSAGE']
+y_train = train_data['CATEGORY']
+# Extract features from the test data
+X_test = test_data['MESSAGE']
+
+# Convert text data to feature vectors
+vectorizer = CountVectorizer()
+X_train_vec = vectorizer.fit_transform(X_train)
+X_test_vec = vectorizer.transform(X_test)
+
+# Initialize the Naive Bayes classifier
+nb_classifier = MultinomialNB()
+
+# Train the classifier
+nb_classifier.fit(X_train_vec, y_train)
+
+# Make predictions on the test data
+test_predictions = nb_classifier.predict(X_test_vec)
+
+# Add the predictions to the test data
+test_data['predicted_label'] = test_predictions
+
+# Save the results to a new CSV file
+test_data.to_csv('classified_test.csv', index=False)
