@@ -1,0 +1,123 @@
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+# Load the dataset
+data = pd.read_csv('/content/drive/MyDrive/Dataset blue.csv')
+
+# Extract the 'real' and 'predicted' columns for normalization
+real_values = data['real'].values.reshape(-1, 1)
+predicted_values = data['predicted'].values.reshape(-1, 1)
+
+# Initialize the MinMaxScaler
+scaler_real = MinMaxScaler(feature_range=(0, 1))
+scaler_predicted = MinMaxScaler(feature_range=(0, 1))
+
+# Fit and transform the values
+scaled_real = scaler_real.fit_transform(real_values)
+scaled_predicted = scaler_predicted.fit_transform(predicted_values)
+
+# Combine the scaled values into a single DataFrame for easier handling
+scaled_data = np.hstack((scaled_real, scaled_predicted))
+
+# Create sequences for LSTM
+def create_sequences(data, seq_length):
+    x, y = [], []
+    for i in range(len(data) - seq_length):
+        x.append(data[i:i+seq_length, :])
+        y.append(data[i+seq_length, 0])  # Predicting the 'real' value
+    return np.array(x), np.array(y)
+
+# Define sequence length
+seq_length = 10
+
+# Create sequences
+X, y = create_sequences(scaled_data, seq_length)
+
+# Split the data into training and testing sets
+split_ratio = 0.8
+train_size = int(len(X) * split_ratio)
+
+X_train, X_test = X[:train_size], X[train_size:]
+y_train, y_test = y[:train_size], y[train_size:]
+
+# Define the LSTM model in PyTorch
+class LSTMModel(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, output_size):
+        super(LSTMModel, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_size, output_size)
+    
+    def forward(self, x):
+        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+        
+        out, _ = self.lstm(x, (h0, c0))
+        out = self.fc(out[:, -1, :])
+        return out
+
+# Set device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Hyperparameters
+input_size = 2
+hidden_size = 50
+num_layers = 2
+output_size = 1
+num_epochs = 50
+learning_rate = 0.001
+
+# Prepare data for PyTorch
+X_train_torch = torch.tensor(X_train, dtype=torch.float32).to(device)
+X_test_torch = torch.tensor(X_test, dtype=torch.float32).to(device)
+y_train_torch = torch.tensor(y_train, dtype=torch.float32).view(-1, 1).to(device)
+y_test_torch = torch.tensor(y_test, dtype=torch.float32).view(-1, 1).to(device)
+
+# Initialize and train the model
+model = LSTMModel(input_size, hidden_size, num_layers, output_size).to(device)
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+for epoch in range(num_epochs):
+    model.train()
+    outputs = model(X_train_torch)
+    optimizer.zero_grad()
+    loss = criterion(outputs, y_train_torch)
+    loss.backward()
+    optimizer.step()
+    
+    if (epoch+1) % 10 == 0:
+        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+
+# Evaluate the model
+model.eval()
+with torch.no_grad():
+    predictions = model(X_test_torch)
+
+# Inverse transform the predictions
+predicted_real = scaler_real.inverse_transform(predictions.cpu().numpy())
+
+# Inverse transform the actual values
+actual_real = scaler_real.inverse_transform(y_test_torch.cpu().numpy())
+
+# Calculate the mean squared error
+mse = mean_squared_error(actual_real, predicted_real)
+mae = mean_absolute_error(actual_real, predicted_real)
+print(f'Mean Squared Error: {mse:.4f}')
+print(f'Mean Absolute Error: {mae:.4f}')
+
+# Custom accuracy calculation
+threshold = 0.05  # You can adjust the threshold value
+accurate_predictions = np.sum(np.abs(predicted_real - actual_real) / actual_real < threshold)
+accuracy = accurate_predictions / len(actual_real) * 100
+print(f'Accuracy: {accuracy:.2f}%')
+
+# Print some predictions vs actual values
+for i in range(5):
+    print(f'Predicted: {predicted_real[i][0]:.2f}, Actual: {actual_real[i][0]:.2f}')
