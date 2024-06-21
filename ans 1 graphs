@@ -1,0 +1,66 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the dataset
+file_path = '/content/drive/MyDrive/Power_Generation_Dataset.csv'  # Replace with your file path
+data = pd.read_csv(file_path)
+
+# Convert 'SourceYear' and 'Month' to datetime for easier manipulation
+data['YearCode'] = pd.to_datetime(data['YearCode'], format='%Y')
+data['Month'] = pd.to_datetime(data['Month'], format='%B, %Y')
+
+# Group the data by year, region, and type of fuel used, and sum the actual energy generated
+fuel_region_year_group = data.groupby(['YearCode', 'Region', 'Type of fuel used'])['Actual energy generated'].sum().reset_index()
+
+# Pivot the data to get years as rows and types of fuel used as columns
+fuel_region_year_pivot = fuel_region_year_group.pivot_table(index=['YearCode', 'Region'], columns='Type of fuel used', values='Actual energy generated', fill_value=0)
+
+# Plot a stacked bar chart to visualize the trends
+regions = fuel_region_year_group['Region'].unique()
+
+for region in regions:
+    plt.figure(figsize=(14, 8))
+    region_data = fuel_region_year_pivot.loc[(slice(None), region), :].reset_index(level='Region', drop=True)
+    region_data.plot(kind='bar', stacked=True, ax=plt.gca())
+    plt.title(f'Energy Generation by Fuel Type in {region}')
+    plt.xlabel('Year')
+    plt.ylabel('Total Energy Generated')
+    plt.legend(title='Type of Fuel Used', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig(f'energy_generation_by_fuel_type_{region}.png')
+    plt.show()
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the dataset
+file_path = '/content/drive/MyDrive/Power_Generation_Dataset.csv'  # Replace with your file path
+data = pd.read_csv(file_path)
+
+# Convert 'SourceYear' and 'Month' to datetime for easier manipulation
+data['YearCode'] = pd.to_datetime(data['YearCode'], format='%Y')
+data['Month'] = pd.to_datetime(data['Month'], format='%B, %Y')
+
+# Group the data by state and year, and sum the actual energy generated
+state_year_group = data.groupby(['Region', data['YearCode'].dt.year])['Actual energy generated'].sum().reset_index()
+state_year_pivot = state_year_group.pivot(index='YearCode', columns='Region', values='Actual energy generated')
+
+# Plot a multi-line chart to visualize the trends
+plt.figure(figsize=(10, 7))
+for state in state_year_pivot.columns:
+    plt.plot(state_year_pivot.index, state_year_pivot[state], marker='o', label=state)
+
+plt.title('Annual Energy Generation Trends in All States')
+plt.xlabel('Year')
+plt.ylabel('Total Energy Generated')
+plt.legend(title='Region', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.xticks(rotation=45)
+plt.grid(True)
+plt.tight_layout()
+
+# Save the plot as an image
+plt.savefig('region.png')
+
+# Show the plot
+plt.show()
