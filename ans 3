@@ -4,7 +4,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
 
 # Load the training dataset
-df_train = pd.read_csv('/content/Consumer_Dataset.csv')
+df_train = pd.read_csv('Consumer_Dataset.csv')
 
 # Handle missing values in the training dataset
 imputer = SimpleImputer(strategy='most_frequent')
@@ -30,7 +30,7 @@ rf_model_full = RandomForestClassifier(random_state=42)
 rf_model_full.fit(X_train_full, y_train_full)
 
 # Load the test dataset
-df_test = pd.read_csv('/content/Consumer Test Dataset.csv')
+df_test = pd.read_csv('Consumer Test Dataset.csv')
 
 # Handle missing values in the test dataset
 df_test_imputed = pd.DataFrame(imputer.transform(df_test), columns=df_test.columns)
@@ -41,7 +41,8 @@ for column in df_test_imputed.select_dtypes(include=['object']).columns:
         df_test_imputed[column] = label_encoders[column].transform(df_test_imputed[column])
 
 # Ensure the test dataset has the same feature columns as the training dataset
-X_test_full = df_test_imputed[X_train_full.columns]
+# Drop any extra columns that are not in the training dataset
+X_test_full = df_test_imputed[X_train_full.columns.intersection(df_test_imputed.columns)]
 
 # Make predictions on the test data
 test_predictions = rf_model_full.predict(X_test_full)
@@ -50,8 +51,8 @@ test_predictions = rf_model_full.predict(X_test_full)
 test_predictions_decoded = label_encoders['Group'].inverse_transform(test_predictions)
 
 # Add predictions to the test dataframe
-df_test['Group'] = test_predictions_decoded
+df_test['Predicted_Group'] = test_predictions_decoded
 
 # Save the predictions to a new CSV file
-output_file_path = '/content/Consumer Test Dataset.csv'
+output_file_path = 'Consumer_Test_Predictions.csv'
 df_test.to_csv(output_file_path, index=False)
